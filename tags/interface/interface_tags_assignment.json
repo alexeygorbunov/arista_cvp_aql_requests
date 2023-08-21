@@ -1,0 +1,60 @@
+{
+    "dashboards": [
+      {
+        "key": "3006f8d0-09ce-4a83-b4eb-724f78e69e67",
+        "createdAt": [
+          190080661,
+          1576
+        ],
+        "createdBy": "cvpadmin",
+        "metaData": {
+          "schemaVersion": "3",
+          "legacyKey": "",
+          "legacyVersion": "",
+          "fromPackage": ""
+        },
+        "name": "AQL_DASHBOARD_INTERFACE_LEVEL_TAG_ASSIGNMENT",
+        "description": "",
+        "widgets": [
+          {
+            "id": "8d3406fb-bef7-4cff-82bc-01a858654a14",
+            "name": "",
+            "position": {
+              "x": 0,
+              "y": 0
+            },
+            "dimensions": {
+              "width": 24,
+              "height": 30
+            },
+            "type": "aql-query-widget",
+            "inputs": {
+              "expression": "### DEVICES\nlet dev_inv_raw = `cvp:/inventory/device/ids/*`\n# dev_inv_raw\n\nlet dev_inv = newDict()\nfor root_serial, timestamp_dict in dev_inv_raw {\n    for timestamp, dev_dictionary in timestamp_dict {\n        for device_id, device_attributes in dev_dictionary {\n            dev_inv[device_id] = device_attributes | fields(\"Key\", \"Hostname\", \"SystemMacAddress\")\n        }\n    }\n}\n# dev_inv\n\n\n### TAGS\nlet int_tags_raw = `analytics:/tags/labels/interfaces/*/value/*/elements` | map(_value) | where(_key != \"name\" && _key != \"speed\")\n# int_tags_raw \n\nlet index = 1\nlet int_tags = newDict()\nlet label_usage = newDict()\n\nfor label_name, label_value_dict in int_tags_raw { \n    label_usage[label_name] = newDict()\n    let label_name_usage = 0\n    for label_value, timeseries_dict in label_value_dict {\n        let label_value_usage = 0\n        for timeseries_item, int_disc_dict in timeseries_dict {\n            for int_dict, bool_val in int_disc_dict {\n                let label_name_usage = label_name_usage + 1\n                let label_value_usage = label_value_usage + 1\n                int_tags[index] = newDict() | setFields(\"label_name\", label_name, \"label_value\", label_value, \"device_id\", dictHasKey(dev_inv, int_dict[\"deviceID\"]) ? dev_inv[int_dict[\"deviceID\"]][\"Hostname\"] : int_dict[\"deviceID\"], \"interface_id\", int_dict[\"interfaceID\"])\n                let index = index + 1\n            }\n        }\n        label_usage[label_name][label_value] = label_value_usage\n    }\n    label_usage[label_name][\"_total_int_qty\"] = label_name_usage\n}\n\n\nfor key, value in int_tags {\n    int_tags[key][\"label_name_used_on_X_ints\"] = label_usage[value[\"label_name\"]][\"_total_int_qty\"]\n    int_tags[key][\"label_value_used_on_X_ints\"] = label_usage[value[\"label_name\"]][value[\"label_value\"]]\n}\nint_tags",
+              "graphConfig": {
+                "columnOrders": {
+                  "key": 1,
+                  "label_name": 2,
+                  "label_value": 4,
+                  "device_id": 6,
+                  "interface_id": 7,
+                  "total_label_name_uses": 3,
+                  "total_label_value_uses": 5,
+                  "label_name_used_on_X_ints": 3,
+                  "label_value_used_on_X_ints": 5
+                },
+                "columns": {
+                  "device_id": {
+                    "mapToHostname": true
+                  }
+                }
+              },
+              "visualization": "table"
+            },
+            "location": "main"
+          }
+        ],
+        "lastUpdated": 1692639329171,
+        "lastUpdatedBy": "cvpadmin"
+      }
+    ]
+  }

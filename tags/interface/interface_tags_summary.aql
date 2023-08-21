@@ -1,0 +1,26 @@
+### TAGS
+let int_tags_raw = `analytics:/tags/labels/interfaces/*/value/*/elements` | map(_value) | where(_key != "name" && _key != "speed")
+# int_tags_raw 
+
+let index = 1
+let label_usage = newDict()
+
+for label_name, label_value_dict in int_tags_raw { 
+    let label_name_usage = 0
+    for label_value, timeseries_dict in label_value_dict {
+        label_usage[label_value] = newDict() | setFields("ID", index, "label_name", label_name)
+        let label_value_usage = 0
+        for timeseries_item, int_disc_dict in timeseries_dict {
+            for int_dict, bool_val in int_disc_dict {
+                let label_name_usage = label_name_usage + 1
+                let label_value_usage = label_value_usage + 1
+            }
+        }
+        let index = index + 1
+        label_usage[label_value]["label_value_usage"] = label_value_usage
+    }
+    let variable_value = "_" + label_name + "_total_usage"
+    label_usage[variable_value] = newDict() | setFields("ID", index, "label_name", label_name, "label_value_usage", label_name_usage)
+    let index = index + 1
+}
+label_usage

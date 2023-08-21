@@ -1,0 +1,58 @@
+{
+    "dashboards": [
+      {
+        "key": "76a2ff78-db01-4a0f-9067-e9265a28ed5d",
+        "createdAt": [
+          424427693,
+          1576
+        ],
+        "createdBy": "cvpadmin",
+        "metaData": {
+          "schemaVersion": "3",
+          "legacyKey": "",
+          "legacyVersion": "",
+          "fromPackage": ""
+        },
+        "name": "AQL_DASHBOARD_INTERFACE_LEVEL_TAG_SUMMARY",
+        "description": "",
+        "widgets": [
+          {
+            "id": "b91c57b6-32dc-43ce-ab48-ede88b5170b2",
+            "name": "",
+            "position": {
+              "x": 0,
+              "y": 0
+            },
+            "dimensions": {
+              "width": 24,
+              "height": 21
+            },
+            "type": "aql-query-widget",
+            "inputs": {
+              "expression": "### TAGS\nlet int_tags_raw = `analytics:/tags/labels/interfaces/*/value/*/elements` | map(_value) | where(_key != \"name\" && _key != \"speed\")\n# int_tags_raw \n\nlet index = 1\nlet label_usage = newDict()\n\nfor label_name, label_value_dict in int_tags_raw { \n    let label_name_usage = 0\n    for label_value, timeseries_dict in label_value_dict {\n        label_usage[label_value] = newDict() | setFields(\"ID\", index, \"label_name\", label_name)\n        let label_value_usage = 0\n        for timeseries_item, int_disc_dict in timeseries_dict {\n            for int_dict, bool_val in int_disc_dict {\n                let label_name_usage = label_name_usage + 1\n                let label_value_usage = label_value_usage + 1\n            }\n        }\n        let index = index + 1\n        label_usage[label_value][\"label_value_usage\"] = label_value_usage\n    }\n    let variable_value = \"_\" + label_name + \"_total_usage\"\n    label_usage[variable_value] = newDict() | setFields(\"ID\", index, \"label_name\", label_name, \"label_value_usage\", label_name_usage)\n    let index = index + 1\n}\nlabel_usage",
+              "graphConfig": {
+                "defaultSort": {
+                  "key": "ID"
+                },
+                "columnOrders": {
+                  "ID": 1,
+                  "key": 3,
+                  "label_name": 2,
+                  "label_value_usage": 4
+                },
+                "columns": {
+                  "key": {
+                    "columnTitle": "label_value"
+                  }
+                }
+              },
+              "visualization": "table"
+            },
+            "location": "main"
+          }
+        ],
+        "lastUpdated": 1692641754371,
+        "lastUpdatedBy": "cvpadmin"
+      }
+    ]
+  }

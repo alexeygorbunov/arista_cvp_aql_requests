@@ -1,0 +1,47 @@
+### DEVICES
+let dev_inv_raw = `cvp:/inventory/device/ids/*`
+# dev_inv_raw
+
+let dev_inv = newDict()
+for root_serial, timestamp_dict in dev_inv_raw {
+    for timestamp, dev_dictionary in timestamp_dict {
+        for device_id, device_attributes in dev_dictionary {
+            dev_inv[device_id] = device_attributes | fields("Key", "Hostname", "SystemMacAddress")
+        }
+    }
+}
+# dev_inv
+
+
+### TAGS
+let int_tags_raw = `analytics:/tags/labels/interfaces/*/value/*/elements` | map(_value) | where(_key != "name" && _key != "speed")
+# int_tags_raw 
+
+let index = 1
+let int_tags = newDict()
+let label_usage = newDict()
+
+for label_name, label_value_dict in int_tags_raw { 
+    label_usage[label_name] = newDict()
+    let label_name_usage = 0
+    for label_value, timeseries_dict in label_value_dict {
+        let label_value_usage = 0
+        for timeseries_item, int_disc_dict in timeseries_dict {
+            for int_dict, bool_val in int_disc_dict {
+                let label_name_usage = label_name_usage + 1
+                let label_value_usage = label_value_usage + 1
+                int_tags[index] = newDict() | setFields("label_name", label_name, "label_value", label_value, "device_id", dictHasKey(dev_inv, int_dict["deviceID"]) ? dev_inv[int_dict["deviceID"]]["Hostname"] : int_dict["deviceID"], "interface_id", int_dict["interfaceID"])
+                let index = index + 1
+            }
+        }
+        label_usage[label_name][label_value] = label_value_usage
+    }
+    label_usage[label_name]["_total_int_qty"] = label_name_usage
+}
+
+
+for key, value in int_tags {
+    int_tags[key]["label_name_used_on_X_ints"] = label_usage[value["label_name"]]["_total_int_qty"]
+    int_tags[key]["label_value_used_on_X_ints"] = label_usage[value["label_name"]][value["label_value"]]
+}
+int_tags
