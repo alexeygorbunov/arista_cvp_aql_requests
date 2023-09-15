@@ -1,0 +1,64 @@
+#################################
+## Int_Tag_Name input variable ##
+#################################
+let int_tag_names = `analytics:/tags/labels/interfaces/*`
+int_tag_names
+
+
+################################
+## Available tag values table ##
+################################
+### TAG VALUES
+let int_tag_values_raw = `analytics:/tags/labels/interfaces/<_Int_Tag_Name>/value/*`
+# int_tag_values_raw
+
+let int_tag_values = newDict()
+
+for tag_value, timeseries_dict in int_tag_values_raw {
+    int_tag_values[tag_value] = newDict()
+}
+int_tag_values
+
+
+###########################
+## Tags assignment table ##
+###########################
+### DEVICES
+let dev_inv_raw = `cvp:/inventory/device/ids/*`
+# dev_inv_raw
+
+let dev_inv = newDict()
+for root_serial, timestamp_dict in dev_inv_raw {
+    for timestamp, dev_dictionary in timestamp_dict {
+        for device_id, device_attributes in dev_dictionary {
+            dev_inv[device_id] = device_attributes | fields("Key", "Hostname", "SystemMacAddress")
+        }
+    }
+}
+# dev_inv
+
+### TAGS
+let int_tags_raw = `analytics:/tags/labels/interfaces/<_Int_Tag_Name>/value/*/elements` | map(_value)
+int_tags_raw
+
+let index = 1
+let int_tags = newDict()
+let label_usage = newDict()
+
+    label_usage[_Int_Tag_Name] = newDict()
+    for label_value, timeseries_dict in int_tags_raw {
+        let label_value_usage = 0
+        for timeseries_item, int_disc_dict in timeseries_dict {
+            for int_dict, bool_val in int_disc_dict {
+                let label_value_usage = label_value_usage + 1
+                int_tags[index] = newDict() | setFields("Interface_Tag_Name", _Int_Tag_Name, "Interface_Tag_Value", label_value, "Device_Id", dictHasKey(dev_inv, int_dict["deviceID"]) ? dev_inv[int_dict["deviceID"]]["Hostname"] : int_dict["deviceID"], "Interface_Id", int_dict["interfaceID"])
+                let index = index + 1
+            }
+        }
+        label_usage[_Int_Tag_Name][label_value] = label_value_usage
+    }
+
+for key, value in int_tags {
+    int_tags[key]["Tag_Value_Used_X_Times"] = label_usage[_Int_Tag_Name][value["Interface_Tag_Value"]]
+}
+int_tags

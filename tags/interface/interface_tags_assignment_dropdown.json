@@ -1,0 +1,126 @@
+{
+  "dashboards": [
+    {
+      "key": "5ce082b8-2f2d-4767-b6bf-69ea0d1e0a1e",
+      "createdAt": [
+        368292161,
+        1578
+      ],
+      "createdBy": "cvpadmin",
+      "metaData": {
+        "schemaVersion": "3",
+        "legacyKey": "",
+        "legacyVersion": "",
+        "fromPackage": ""
+      },
+      "name": "AQL_DASHBOARD_INTERFACE_LEVEL_TAG_ASSIGNMENT_DROPDOWN",
+      "description": "1. Pick Int_Tag_Name from dropdown list 2. View report for selected tag name",
+      "widgets": [
+        {
+          "id": "25fae2c9-b484-402c-95e6-148b9f797c80",
+          "name": "Devices_And_Interfaces_Using_Tag_Name_From_Dropdown_List_Above",
+          "position": {
+            "x": 5,
+            "y": 0
+          },
+          "dimensions": {
+            "width": 19,
+            "height": 18
+          },
+          "type": "aql-query-widget",
+          "inputs": {
+            "expression": "### DEVICES\nlet dev_inv_raw = `cvp:/inventory/device/ids/*`\n# dev_inv_raw\n\nlet dev_inv = newDict()\nfor root_serial, timestamp_dict in dev_inv_raw {\n    for timestamp, dev_dictionary in timestamp_dict {\n        for device_id, device_attributes in dev_dictionary {\n            dev_inv[device_id] = device_attributes | fields(\"Key\", \"Hostname\", \"SystemMacAddress\")\n        }\n    }\n}\n# dev_inv\n\n### TAGS\nlet int_tags_raw = `analytics:/tags/labels/interfaces/<_Int_Tag_Name>/value/*/elements` | map(_value)\nint_tags_raw\n\nlet index = 1\nlet int_tags = newDict()\nlet label_usage = newDict()\n\n    label_usage[_Int_Tag_Name] = newDict()\n    for label_value, timeseries_dict in int_tags_raw {\n        let label_value_usage = 0\n        for timeseries_item, int_disc_dict in timeseries_dict {\n            for int_dict, bool_val in int_disc_dict {\n                let label_value_usage = label_value_usage + 1\n                int_tags[index] = newDict() | setFields(\"Interface_Tag_Name\", _Int_Tag_Name, \"Interface_Tag_Value\", label_value, \"Device_Id\", dictHasKey(dev_inv, int_dict[\"deviceID\"]) ? dev_inv[int_dict[\"deviceID\"]][\"Hostname\"] : int_dict[\"deviceID\"], \"Interface_Id\", int_dict[\"interfaceID\"])\n                let index = index + 1\n            }\n        }\n        label_usage[_Int_Tag_Name][label_value] = label_value_usage\n    }\n\nfor key, value in int_tags {\n    int_tags[key][\"Tag_Value_Used_X_Times\"] = label_usage[_Int_Tag_Name][value[\"Interface_Tag_Value\"]]\n}\nint_tags",
+            "graphConfig": {
+              "defaultSort": {
+                "key": "Interface_Tag_Value"
+              },
+              "columnOrders": {
+                "ID": 1,
+                "label_name": 1,
+                "key": 6,
+                "label_value_usage": 4,
+                "label_value": 2,
+                "device_id": 3,
+                "interface_id": 4,
+                "label_value_used_on_X_ints": 5,
+                "Interface_Tag_Name": 1,
+                "Interface_Tag_Value": 2,
+                "Interface_Tag_Value_Used_On_X_Ints": 3,
+                "Interface_Id": 4,
+                "Device_Id": 3,
+                "Tag_Value_Used_X_Times": 5
+              },
+              "columns": {
+                "key": {
+                  "columnTitle": "Unique_ID"
+                },
+                "Device_Id": {
+                  "mapToHostname": true
+                }
+              }
+            },
+            "visualization": "table"
+          },
+          "location": "main"
+        },
+        {
+          "id": "af5a1461-9f31-4c7c-9576-5ab8b1972131",
+          "name": "Available_Int_Tag_Values",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "dimensions": {
+            "width": 5,
+            "height": 18
+          },
+          "type": "aql-query-widget",
+          "inputs": {
+            "expression": "### TAG VALUES\nlet int_tag_values_raw = `analytics:/tags/labels/interfaces/<_Int_Tag_Name>/value/*`\n# int_tag_values_raw\n\nlet int_tag_values = newDict()\n\nfor tag_value, timeseries_dict in int_tag_values_raw {\n    int_tag_values[tag_value] = newDict()\n}\nint_tag_values",
+            "graphConfig": {
+              "columnOrders": {
+                "Interface_Tag_Name": 1,
+                "key": 2
+              },
+              "columns": {
+                "key": {
+                  "columnTitle": "Available_Interface_Tag_Values"
+                }
+              }
+            },
+            "visualization": "table"
+          },
+          "location": "main"
+        },
+        {
+          "id": "00327e24-1203-471c-8437-f4f363b65803",
+          "name": "",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "dimensions": {
+            "width": 10,
+            "height": 2
+          },
+          "type": "variable-widget",
+          "inputs": {
+            "defaultValue": "topology_role",
+            "inputName": "Int_Tag_Name",
+            "inputType": "SingleSelect",
+            "inputWidgetId": "00327e24-1203-471c-8437-f4f363b65803",
+            "selectData": {
+              "createOptionsUsingAql": true,
+              "manualOptions": [],
+              "query": "let int_tag_names = `analytics:/tags/labels/interfaces/*`\nint_tag_names"
+            },
+            "variableType": "String"
+          },
+          "location": "inputs"
+        }
+      ],
+      "lastUpdated": 1694801141754,
+      "lastUpdatedBy": "cvpadmin"
+    }
+  ]
+}
