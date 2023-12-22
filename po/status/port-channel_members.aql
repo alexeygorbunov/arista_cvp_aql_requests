@@ -1,0 +1,236 @@
+## DEVICES
+let dev_inv_raw = `cvp:/inventory/device/ids/*`
+# dev_inv_raw
+
+let dev_inv = newDict()
+for root_serial, timestamp_dict in dev_inv_raw {
+    for timestamp, dev_dictionary in timestamp_dict {
+        for device_id, device_attributes in dev_dictionary {
+            dev_inv[device_id] = device_attributes | fields("Key", "Hostname", "SystemMacAddress", "StreamingStatus")
+        }
+    }
+}
+# dev_inv
+
+
+let po_conf_mem_raw = `*:/Sysdb/lag/input/config/cli/phyIntf/*`
+#po_conf_mem_raw
+
+let po_conf_mem = newDict()
+for serial_number, interface_dict in po_conf_mem_raw {
+    po_conf_mem[serial_number] = newDict()
+    for interface, timestamp_dict in interface_dict {
+        for timestamp, int_attributes in timestamp_dict {
+            if dictHasKey(int_attributes, "lag") {
+                if ! dictHasKey(po_conf_mem[serial_number], strReplace(strSplit(str(int_attributes["lag"]), "/")[-1], "}", "")) {
+                    po_conf_mem[serial_number][strReplace(strSplit(str(int_attributes["lag"]), "/")[-1], "}", "")] = newDict()
+                }
+                po_conf_mem[serial_number][strReplace(strSplit(str(int_attributes["lag"]), "/")[-1], "}", "")][interface] = ""
+            }
+        }
+    }
+}
+# po_conf_mem
+
+
+let po_admin_status_raw = `*:/Sysdb/interface/config/eth/lag/intfConfig/*`
+# po_admin_status_raw
+
+let po_admin_status = newDict()
+let po_description = newDict()
+for serial_number, po_interface_dict in po_admin_status_raw {
+    po_admin_status[serial_number] = newDict()
+    po_description[serial_number] = newDict()
+    for po_interface, timestamp_dict in po_interface_dict {
+        for timestamp, po_int_attributes in timestamp_dict {
+            if dictHasKey(po_int_attributes, "enabledStateLocal") {
+                po_admin_status[serial_number][po_interface] = po_int_attributes["enabledStateLocal"]["Name"]
+            } else {
+                # handle case where latest(later) timeseries overwrites some other values but not admin status
+                if ! dictHasKey(po_admin_status[serial_number], po_interface) {
+                    po_admin_status[serial_number][po_interface] = "unknown"
+                }
+            }
+
+            if dictHasKey(po_int_attributes, "description") {
+                po_description[serial_number][po_interface] = po_int_attributes["description"]
+            } else {
+                # handle case where latest(later) timeseries overwrites some other values but not admin status
+                if ! dictHasKey(po_description[serial_number], po_interface) {
+                    po_description[serial_number][po_interface] = "unknown"
+                }                
+            }
+        }
+    }
+}
+# po_admin_status
+# po_description
+
+
+## collect PO Operational status
+let po_oper_status_raw = `*:/Sysdb/lag/input/interface/lag/intfStatus/*`
+# po_oper_status_raw
+
+let po_oper_status = newDict()
+for serial_number, po_interface_dict in po_oper_status_raw {
+    if ! dictHasKey(po_oper_status, serial_number) {
+        po_oper_status[serial_number] = newDict()
+    }
+    for po_interface, timestamp_dict in po_interface_dict {
+        for timestamp, po_int_attributes in timestamp_dict {
+            if dictHasKey(po_int_attributes, "operStatus") {
+                po_oper_status[serial_number][po_interface] = strHasSuffix(po_int_attributes["operStatus"]["Name"], "Up") ? "up" : (strHasSuffix(po_int_attributes["operStatus"]["Name"], "Down") ? "down" : po_int_attributes["operStatus"]["Name"])
+                # po_oper_status[serial_number][po_interface] = po_int_attributes["operStatus"]["Name"] == "intfOperUp" ? "up" : po_int_attributes["operStatus"]["Name"] == "intfOperLowerLayerDown" ? "down" : po_int_attributes["operStatus"]["Name"]
+            } else {
+                if ! dictHasKey(po_oper_status[serial_number],po_interface ) {
+                    po_oper_status[serial_number][po_interface] = "unknown"
+                }
+            }
+        }
+    }
+}
+# po_oper_status
+
+
+let po_oper_mem_raw = `*:/Sysdb/lag/input/interface/lag/intfStatus/*/member`
+# po_oper_mem_raw
+
+let po_oper_mem = newDict()
+for serial_number, po_interface_dict in po_oper_mem_raw {
+    po_oper_mem[serial_number] = newDict()
+    for po_interface, timestamp_dict in po_interface_dict {
+        if ! dictHasKey(po_oper_mem[serial_number], po_interface) {
+                    po_oper_mem[serial_number][po_interface] = newDict()
+                }
+        for timestamp, po_int_mems_dict in timestamp_dict {            
+            for interface_key, interface_value in po_int_mems_dict {
+                po_oper_mem[serial_number][po_interface][interface_key] = ""
+            }         
+        }
+    }
+}
+# po_oper_mem
+
+
+let po_report = newDict()
+
+# render PO admin status
+for sn, po_dict in po_admin_status {
+    if ! dictHasKey(po_report, sn) {
+        po_report[sn] = newDict()
+    }
+    for po_name, po_status in  po_dict {
+        if strHasPrefix(po_name, "Port-Channel") {
+            if ! dictHasKey(po_report[sn], po_name) {
+                po_report[sn][po_name] = newDict()
+            }
+            po_report[sn][po_name]["po_admin_status"] = po_status
+        }
+    }
+}
+
+# render PO oper status
+for sn, po_dict in po_oper_status {
+    if ! dictHasKey(po_report, sn) {
+        po_report[sn] = newDict()
+    }
+    for po_name, po_status in  po_dict {
+        if strHasPrefix(po_name, "Port-Channel") {
+            if ! dictHasKey(po_report[sn], po_name) {
+                po_report[sn][po_name] = newDict()
+            }
+            po_report[sn][po_name]["po_oper_status"] = po_status
+        }
+    }
+}
+
+# render configured members
+for sn, po_dict in po_conf_mem {
+    if ! dictHasKey(po_report, sn) {
+        po_report[sn] = newDict()
+    }
+    for po, conf_mems in po_dict {
+        if strHasPrefix(po, "Port-Channel") {
+            if ! dictHasKey(po_report[sn], po) {
+                po_report[sn][po] = newDict()
+            }
+            po_report[sn][po]["po_conf_mems"] = ""
+            for int, value in conf_mems {
+                po_report[sn][po]["po_conf_mems"] = str(po_report[sn][po]["po_conf_mems"]) + str(length(po_report[sn][po]["po_conf_mems"]) == 0 ? "" : ", ") + str(int)
+            }
+        }
+    }
+}
+
+# render active members
+for sn, po_dict in po_oper_mem {
+    if ! dictHasKey(po_report, sn) {
+        po_report[sn] = newDict()
+    }
+    for po, oper_mems in po_dict {
+        if strHasPrefix(po, "Port-Channel") {
+            if ! dictHasKey(po_report[sn], po) {
+                po_report[sn][po] = newDict()
+            }
+            po_report[sn][po]["po_active_mems"] = ""
+            for int, value in oper_mems {
+                po_report[sn][po]["po_active_mems"] = str(po_report[sn][po]["po_active_mems"]) + str(length(po_report[sn][po]["po_active_mems"]) == 0 ? "" : ", ") + str(int)
+            }
+        }
+    }
+}
+
+# render inactive members
+for sn, po_dict in po_conf_mem {
+    if ! dictHasKey(po_report, sn) {
+        po_report[sn] = newDict()
+    }
+    for po, conf_mems in po_dict {
+        if strHasPrefix(po, "Port-Channel") {
+            if ! dictHasKey(po_report[sn], po) {
+                po_report[sn][po] = newDict()
+            }
+            po_report[sn][po]["po_inactive_mems"] = ""
+            for int, value in conf_mems {
+                if dictHasKey(po_oper_mem, sn) && dictHasKey(po_oper_mem[sn], po) {
+                    if ! dictHasKey(po_oper_mem[sn][po], int) {
+                        po_report[sn][po]["po_inactive_mems"] = str(po_report[sn][po]["po_inactive_mems"]) + str(length(po_report[sn][po]["po_inactive_mems"]) == 0 ? "" : ", ") + str(int)
+                    }
+                } else {
+                    po_report[sn][po]["po_inactive_mems"] = str(po_report[sn][po]["po_inactive_mems"]) + str(length(po_report[sn][po]["po_inactive_mems"]) == 0 ? "" : ", ") + str(int)
+                }
+
+            }
+        }
+    }
+}
+
+# render PO description
+for sn, po_dict in po_description {
+    if ! dictHasKey(po_report, sn) {
+        po_report[sn] = newDict()
+    }
+    for po_name, po_desc in  po_dict {
+        if strHasPrefix(po_name, "Port-Channel") {
+            if ! dictHasKey(po_report[sn], po_name) {
+                po_report[sn][po_name] = newDict()
+            }
+            po_report[sn][po_name]["po_desc"] = po_desc
+        }
+    }
+}
+
+# po_report
+
+
+## Convert data to proper format and resolve hostnames
+let po_report_final = newDict()
+for sn, data in po_report {
+    for po_name, po_data in data {
+        # conditional reporting (based on the UI input vars)
+        if ((dictHasKey(po_data, "po_conf_mems") && po_data["po_conf_mems"] != "undefined") || _showNoConfMem) && ((dictHasKey(po_data, "po_admin_status") && po_data["po_admin_status"] != "undefined" && ! strHasPrefix(po_data["po_admin_status"],"unknown")) || _showNoAdmState) && (dev_inv[sn]["StreamingStatus"] == "active" || ! _showStreamOnly) && (length(po_data["po_inactive_mems"]) > 0 || ! _showAlarmsOnly) {
+            po_report_final[str(dictHasKey(dev_inv, sn) ? dev_inv[sn]["Hostname"] : sn) + " " + str(po_name)] = po_data
+        }
+    }
+}
+po_report_final
