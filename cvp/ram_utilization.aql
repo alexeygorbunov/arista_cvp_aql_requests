@@ -1,0 +1,123 @@
+let cvp_nodes = newDict()
+let cvp_nodes_raw = merge(`analytics:/CvpMetrics/cvpi/env`)
+# cvp_nodes_raw
+
+cvp_nodes[cvp_nodes_raw["PRIMARY_HOST_IP"]] = newDict()
+cvp_nodes[cvp_nodes_raw["PRIMARY_HOST_IP"]]["role"] = "primary"
+cvp_nodes[cvp_nodes_raw["PRIMARY_HOST_IP"]]["ip"] = cvp_nodes_raw["PRIMARY_HOST_IP"]
+cvp_nodes[cvp_nodes_raw["PRIMARY_HOST_IP"]]["hostname"] = cvp_nodes_raw["PRIMARY_HOSTNAME"]
+if cvp_nodes_raw["SECONDARY_HOST_IP"] != "" {
+    cvp_nodes[cvp_nodes_raw["SECONDARY_HOST_IP"]] = newDict()
+    cvp_nodes[cvp_nodes_raw["SECONDARY_HOST_IP"]]["role"] = "secondary"
+    cvp_nodes[cvp_nodes_raw["SECONDARY_HOST_IP"]]["ip"] = cvp_nodes_raw["SECONDARY_HOST_IP"]
+    cvp_nodes[cvp_nodes_raw["SECONDARY_HOST_IP"]]["hostname"] = cvp_nodes_raw["SECONDARY_HOSTNAME"]
+}
+if cvp_nodes_raw["TERTIARY_HOST_IP"] != "" {
+    cvp_nodes[cvp_nodes_raw["TERTIARY_HOST_IP"]] = newDict()
+    cvp_nodes[cvp_nodes_raw["TERTIARY_HOST_IP"]]["role"] = "tertiary"
+    cvp_nodes[cvp_nodes_raw["TERTIARY_HOST_IP"]]["ip"] = cvp_nodes_raw["TERTIARY_HOST_IP"]
+    cvp_nodes[cvp_nodes_raw["TERTIARY_HOST_IP"]]["hostname"] = cvp_nodes_raw["TERTIARY_HOSTNAME"]
+}
+# cvp_nodes
+
+
+let mem_usage_raw = `analytics:/CvpMetrics/prometheus/memory_usage`[168h]
+# mem_usage_raw
+
+let mem_usage_report = newDict()
+mem_usage_report["hostname"] = newDict()
+
+let mins_in_day = 1440
+let general_counter = 0
+let days_counter = 0
+let primary_counter = 0
+let secondary_counter = 0
+let tertiary_counter = 0
+let primary_mem_sum = 0
+let secondary_mem_sum = 0
+let tertiary_mem_sum = 0
+let primary_ip = ""
+let secondary_ip = ""
+let tertiary_ip = ""
+
+for timestamp, timestamp_dict in mem_usage_raw {
+    let general_counter = general_counter + 1
+    for switch_dict, mem_usage in timestamp_dict {
+        let node_ip = strSplit(switch_dict["instance"], ":")[0]
+        if dictHasKey(cvp_nodes, node_ip) {
+            if cvp_nodes[node_ip]["role"] == "primary" {
+                if primary_ip == "" {
+                    let primary_ip = strSplit(switch_dict["instance"], ":")[0]
+                }
+                if !dictHasKey(mem_usage_report["hostname"], primary_ip) {
+                    mem_usage_report["hostname"][primary_ip] = cvp_nodes[node_ip]["hostname"]
+                }
+                let primary_counter = primary_counter + 1
+                let primary_mem_sum = primary_mem_sum + mem_usage
+            } else {
+                if cvp_nodes[node_ip]["role"] == "secondary" {
+                    if secondary_ip == "" {
+                        let secondary_ip = strSplit(switch_dict["instance"], ":")[0]
+                    }
+                    if !dictHasKey(mem_usage_report["hostname"], secondary_ip) {
+                        mem_usage_report["hostname"][secondary_ip] = cvp_nodes[node_ip]["hostname"]
+                    }
+                    let secondary_counter = secondary_counter + 1
+                    let secondary_mem_sum = secondary_mem_sum + mem_usage
+                } else {
+                    if cvp_nodes[node_ip]["role"] == "tertiary" {
+                        if tertiary_ip == "" {
+                            let tertiary_ip = strSplit(switch_dict["instance"], ":")[0]
+                        }
+                        if !dictHasKey(mem_usage_report["hostname"], tertiary_ip) {
+                            mem_usage_report["hostname"][tertiary_ip] = cvp_nodes[node_ip]["hostname"]
+                        }
+                        let tertiary_counter = tertiary_counter + 1
+                        let tertiary_mem_sum = tertiary_mem_sum + mem_usage
+                    }
+                }
+            }
+        }
+    }
+    if general_counter == mins_in_day {
+        mem_usage_report[days_counter == 0 ? "now" : "now-" + str(days_counter) + "d"] = newDict()
+        if primary_counter != 0 && primary_mem_sum != 0 {
+            mem_usage_report[days_counter == 0 ? "now" : "now-" + str(days_counter) + "d"][primary_ip] = reFindAll(str(primary_mem_sum/primary_counter/1073741824), "^\d{2}\.\d{2}")[0] + " Gb"
+        }
+        if secondary_counter != 0 && secondary_mem_sum != 0 {
+            mem_usage_report[days_counter == 0 ? "now" : "now-" + str(days_counter) + "d"][secondary_ip] = reFindAll(str(secondary_mem_sum/secondary_counter/1073741824), "^\d{2}\.\d{2}")[0] + " Gb"
+        }
+        if tertiary_counter != 0 && tertiary_mem_sum != 0 {
+            mem_usage_report[days_counter == 0 ? "now" : "now-" + str(days_counter) + "d"][tertiary_ip] = reFindAll(str(tertiary_mem_sum/tertiary_counter/1073741824), "^\d{2}\.\d{2}")[0] + " Gb"
+        }
+        let days_counter = days_counter + 1
+        let general_counter = 0
+        let primary_counter = 0
+        let secondary_counter = 0
+        let tertiary_counter = 0
+        let primary_mem_sum = 0
+        let secondary_mem_sum = 0
+        let tertiary_mem_sum = 0
+    }
+}
+
+if primary_counter != 0 && primary_mem_sum != 0 {
+    if ! dictHasKey(mem_usage_report, "now-" + str(days_counter) + "d") {
+        mem_usage_report["now-" + str(days_counter) + "d"] = newDict()
+    }
+    mem_usage_report["now-" + str(days_counter) + "d"][primary_ip] = reFindAll(str(primary_mem_sum/primary_counter/1073741824), "^\d{2}\.\d{2}")[0] + " Gb"
+}
+if secondary_counter != 0 && secondary_mem_sum != 0 {
+    if ! dictHasKey(mem_usage_report, "now-" + str(days_counter) + "d") {
+        mem_usage_report["now-" + str(days_counter) + "d"] = newDict()
+    }
+    mem_usage_report["now-" + str(days_counter) + "d"][secondary_ip] = reFindAll(str(secondary_mem_sum/secondary_counter/1073741824), "^\d{2}\.\d{2}")[0] + " Gb"
+}
+if tertiary_counter != 0 && tertiary_mem_sum != 0 {
+    if ! dictHasKey(mem_usage_report, "now-" + str(days_counter) + "d") {
+        mem_usage_report["now-" + str(days_counter) + "d"] = newDict()
+    }
+    mem_usage_report["now-" + str(days_counter) + "d"][tertiary_ip] = reFindAll(str(tertiary_mem_sum/tertiary_counter/1073741824), "^\d{2}\.\d{2}")[0] + " Gb"
+}
+
+mem_usage_report
