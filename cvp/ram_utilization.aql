@@ -82,13 +82,13 @@ for timestamp, timestamp_dict in mem_usage_raw {
     if general_counter == mins_in_day {
         mem_usage_report[days_counter == 0 ? "now" : "now-" + str(days_counter) + "d"] = newDict()
         if primary_counter != 0 && primary_mem_sum != 0 {
-            mem_usage_report[days_counter == 0 ? "now" : "now-" + str(days_counter) + "d"][primary_ip] = reFindAll(str(primary_mem_sum/primary_counter/1073741824), "^\d{2}\.\d{2}")[0] + " Gb"
+            mem_usage_report[days_counter == 0 ? "now" : "now-" + str(days_counter) + "d"][primary_ip] = reFindAll(str(primary_mem_sum/primary_counter/1024 ^ 3), "^\d{2}\.\d{2}")[0] + " GB"
         }
         if secondary_counter != 0 && secondary_mem_sum != 0 {
-            mem_usage_report[days_counter == 0 ? "now" : "now-" + str(days_counter) + "d"][secondary_ip] = reFindAll(str(secondary_mem_sum/secondary_counter/1073741824), "^\d{2}\.\d{2}")[0] + " Gb"
+            mem_usage_report[days_counter == 0 ? "now" : "now-" + str(days_counter) + "d"][secondary_ip] = reFindAll(str(secondary_mem_sum/secondary_counter/1024 ^ 3), "^\d{2}\.\d{2}")[0] + " GB"
         }
         if tertiary_counter != 0 && tertiary_mem_sum != 0 {
-            mem_usage_report[days_counter == 0 ? "now" : "now-" + str(days_counter) + "d"][tertiary_ip] = reFindAll(str(tertiary_mem_sum/tertiary_counter/1073741824), "^\d{2}\.\d{2}")[0] + " Gb"
+            mem_usage_report[days_counter == 0 ? "now" : "now-" + str(days_counter) + "d"][tertiary_ip] = reFindAll(str(tertiary_mem_sum/tertiary_counter/1024 ^ 3), "^\d{2}\.\d{2}")[0] + " GB"
         }
         let days_counter = days_counter + 1
         let general_counter = 0
@@ -105,19 +105,19 @@ if primary_counter != 0 && primary_mem_sum != 0 {
     if ! dictHasKey(mem_usage_report, "now-" + str(days_counter) + "d") {
         mem_usage_report["now-" + str(days_counter) + "d"] = newDict()
     }
-    mem_usage_report["now-" + str(days_counter) + "d"][primary_ip] = reFindAll(str(primary_mem_sum/primary_counter/1073741824), "^\d{2}\.\d{2}")[0] + " Gb"
+    mem_usage_report["now-" + str(days_counter) + "d"][primary_ip] = reFindAll(str(primary_mem_sum/primary_counter/1024 ^ 3), "^\d{2}\.\d{2}")[0] + " GB"
 }
 if secondary_counter != 0 && secondary_mem_sum != 0 {
     if ! dictHasKey(mem_usage_report, "now-" + str(days_counter) + "d") {
         mem_usage_report["now-" + str(days_counter) + "d"] = newDict()
     }
-    mem_usage_report["now-" + str(days_counter) + "d"][secondary_ip] = reFindAll(str(secondary_mem_sum/secondary_counter/1073741824), "^\d{2}\.\d{2}")[0] + " Gb"
+    mem_usage_report["now-" + str(days_counter) + "d"][secondary_ip] = reFindAll(str(secondary_mem_sum/secondary_counter/1024 ^ 3), "^\d{2}\.\d{2}")[0] + " GB"
 }
 if tertiary_counter != 0 && tertiary_mem_sum != 0 {
     if ! dictHasKey(mem_usage_report, "now-" + str(days_counter) + "d") {
         mem_usage_report["now-" + str(days_counter) + "d"] = newDict()
     }
-    mem_usage_report["now-" + str(days_counter) + "d"][tertiary_ip] = reFindAll(str(tertiary_mem_sum/tertiary_counter/1073741824), "^\d{2}\.\d{2}")[0] + " Gb"
+    mem_usage_report["now-" + str(days_counter) + "d"][tertiary_ip] = reFindAll(str(tertiary_mem_sum/tertiary_counter/1024 ^ 3), "^\d{2}\.\d{2}")[0] + " GB"
 }
 
 mem_usage_report
